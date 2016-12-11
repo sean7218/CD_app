@@ -8,15 +8,48 @@
 
 import UIKit
 import CoreData
+import Parse
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
 
     var window: UIWindow?
 
-
+    let dataController = DataController.sharedInstance
+    let moc = DataController.sharedInstance.managedObjectContext
+    
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?) -> Bool {
         // Override point for customization after application launch.
+        /*
+        //Initialize Parse Server
+        let configuration = ParseClientConfiguration {
+            $0.applicationId = "qD2jI4KnRSa4XRT0fU3UNBuhPoRjRG6vgW43kG4W"
+            $0.clientKey = "k3PsFLuQpM9grxcZC78I4xsNzC3GDSvuV7lLY2KZ"
+            $0.server = "https://parseapi.back4app.com/"
+        }
+        Parse.initialize(with: configuration)
+        
+        let query = PFQuery(className: "Drawings")
+        query.findObjectsInBackground() { (objects, error) -> Void in
+            
+        }
+        */
+        
+        
+
+        let defaults = UserDefaults.standard
+        
+        let isPreloaded = defaults.bool(forKey: "isPreloaded")
+        
+        print("What is the current isPreloaded \(isPreloaded)")
+        if !isPreloaded {
+            //print("isPreloadedis NOT TRUE")
+            dataController.preloadData()
+            defaults.set(true, forKey: "isPreloaded")
+            print("What is the current isPreloaded \(isPreloaded)")
+        }
+        
+
         return true
     }
 
@@ -41,11 +74,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
         // Saves changes in the application's managed object context before the application terminates.
-        self.saveContext()
+        //self.saveContext()
     }
 
     // MARK: - Core Data stack
-
+    
     lazy var persistentContainer: NSPersistentContainer = {
         /*
          The persistent container for the application. This implementation
@@ -76,7 +109,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     // MARK: - Core Data Saving support
 
     func saveContext () {
-        let context = persistentContainer.viewContext
+        let context = DataController.sharedInstance.managedObjectContext
         if context.hasChanges {
             do {
                 try context.save()
@@ -88,6 +121,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             }
         }
     }
+ 
 
 }
 
