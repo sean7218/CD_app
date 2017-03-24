@@ -49,10 +49,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
             print("What is the current isPreloaded \(isPreloaded)")
         }
         
-
-        return true
+        let temp = AWSMobileClient.sharedInstance.didFinishLaunching(application: application, withOptions: launchOptions as [NSObject : AnyObject]?)
+        return temp
     }
-
+    
+    private func application(application: UIApplication, openURL url: NSURL, sourceApplication: String?, annotation: AnyObject) -> Bool {
+        return AWSMobileClient.sharedInstance.withApplication(application: application, withURL: url, withSourceApplication: sourceApplication, withAnnotation: annotation)
+    }
+    
+    func applicationDidBecomeActive(application: UIApplication) {
+        AWSMobileClient.sharedInstance.applicationDidBecomeActive(application: application)
+    }
+    
+    
     func applicationWillResignActive(_ application: UIApplication) {
         // Sent when the application is about to move from active to inactive state. This can occur for certain types of temporary interruptions (such as an incoming phone call or SMS message) or when the user quits the application and it begins the transition to the background state.
         // Use this method to pause ongoing tasks, disable timers, and invalidate graphics rendering callbacks. Games should use this method to pause the game.

@@ -10,11 +10,17 @@ import UIKit
 import Foundation
 import CoreData
 import QuickLook
-
+import AWSMobileHubHelper
 
 
 class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource, QLPreviewControllerDataSource,QLPreviewControllerDelegate, UIPopoverPresentationControllerDelegate {
     
+    var demoFeatures: [DemoFeature] = []
+    var contentManager: AWSContentManager!
+    var contents: [AWSContent]!
+    var prefix: String?
+    var marker: String?
+    var didLoadAllContents: Bool?
 
     var codeName: String = "ER"
     var typeName: String = "ND"
@@ -40,8 +46,24 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        contentManager = AWSContentManager.defaultContentManager()
         
+        var demoFeature = DemoFeature.init(
+            name: NSLocalizedString("User Sign-in",
+                                    comment: "Label for demo menu option."),
+            detail: NSLocalizedString("Enable user login with popular 3rd party providers.",
+                                      comment: "Description for demo menu option."),
+            icon: "UserIdentityIcon", storyboard: "UserIdentity")
         
+        demoFeatures.append(demoFeature)
+        
+        demoFeature = DemoFeature.init(
+            name: NSLocalizedString("App Content Delivery", comment: "Label for demo menu option."),
+            detail: NSLocalizedString("Store and distribute media assets and other files via global content delivery network.", comment: "Description for demo menu option."),
+            icon: "ContentDeliveryIcon",
+            storyboard: "ContentDelivery")
+        
+        demoFeatures.append(demoFeature)
         
         // setup on quicklook
         quickLookController.dataSource = self
@@ -50,14 +72,81 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // setup on tableView
         tableView.delegate = self
         tableView.dataSource = self
+    
         
-        // setup on coreData
-        //dataController.preloadData()
+        //Retrieving User Identity
+        loadAvailableContent()
+        
+        if didLoadAllContents == true {
+            //Setup the links
+            createURLsForQL()
+        }
 
-        createURLsForQL()
+        
+  
+        
+    }
+    
+    func showSimpleAlertWithTitle(title: String, message: String, cancelButtonTitle cancelTitle: String) {
+        let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+        let cancelAction = UIAlertAction(title: cancelTitle, style: .cancel, handler: nil)
+        alertController.addAction(cancelAction)
+        present(alertController, animated: true, completion: nil)
+    }
+    
+    func loadAvailableContent() {
+
+        contentManager.listAvailableContents(withPrefix: prefix, marker: marker, completionHandler: {[weak self](contents: [AWSContent]?, nextMarker: String?, error: Error?) -> Void in
+            guard let strongSelf = self else { return }
+            if let error = error {
+                strongSelf.showSimpleAlertWithTitle(title: "Error", message: "Failed to load the list of contents.", cancelButtonTitle: "OK")
+                print("Failed to load the list of contents. \(error)")
+            }
+            
+            if let contents = contents, contents.count == 0 {
+                
+                print("content is zero right now in the listAvailable Contents")
+            }
+            if let contents = contents, contents.count > 0 {
+                print("content is not zero in the listAvailable Contents")
+                strongSelf.contents = contents
+                if let nextMarker = nextMarker, !nextMarker.isEmpty{
+                    strongSelf.didLoadAllContents = false
+                } else {
+                    strongSelf.didLoadAllContents = true
+                    print("DidLodAllContents")
+                }
+                strongSelf.marker = nextMarker
+            }
+            //strongSelf.updateUserInterface()
+            self?.createURLsForQL()
+        })
         
     }
 
+    func loadSpecificFolder() {
+        
+        contentManager.listAvailableContents(withPrefix: prefix, marker: marker, completionHandler: { (contents:[AWSContent]?, nextMarker: String?, error: Error?) -> Void in
+            
+            if let error = error {
+                self.showSimpleAlertWithTitle(title: "Error", message: "Failed to load the list of contents", cancelButtonTitle: "Ok")
+                print("Failed to load the list of contents. \(error)")
+            }
+        
+            if let contents = contents, contents.count > 0 {
+                
+                self.contents = contents
+            }
+            
+            for content in contents! {
+                if content.isDirectory {
+                    print(content.key)
+                }
+            }
+        
+        })
+    }
+    
     func numberOfSections(in tableView: UITableView) -> Int {
         
         return fetchedResultsController.sections?.count ?? 0
@@ -100,6 +189,22 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     func createURLsForQL (){
             fileURLs = [URL]()
+            print(contents.count)
+        
+        for content in contents {
+            content.getRemoteFileURL(completionHandler: { (url: URL?, error: Error?) -> Void in
+                guard let url = url else {
+                    print("Fail to load the url with error: \(error)")
+                    
+                    return
+                }
+                print("THIS URL JUST ADDED: \(url)")
+                self.fileURLs.append(url)
+            })
+            
+        }
+        
+        /*
         let count = fetchedResultsController.fetchedObjects?.count
         if count != 0 {
     
@@ -115,6 +220,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             names.append(name!)
             }
         }
+        */
     }
     
     func numberOfPreviewItems(in controller: QLPreviewController) -> Int {
@@ -130,7 +236,21 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
-
+        
+        print("The Content[index].key is \(contents[indexPath.row].key)")
+        
+        let webViewController = UIViewController(nibName: nil, bundle: nil)
+        let webView = UIWebView()
+        let view = webViewController.view
+        let urlRequest = URLRequest(url: fileURLs[indexPath.row])
+        view?.backgroundColor = UIColor.white
+        webView.frame = self.view.frame
+        webView.loadRequest(urlRequest)
+        view?.addSubview(webView)
+    
+        self.navigationController?.pushViewController(webViewController, animated: true)
+        
+        /*
         if QLPreviewController.canPreview(fileURLs[indexPath.row] as QLPreviewItem) {
        
             quickLookController.currentPreviewItemIndex = indexPath.row
@@ -140,7 +260,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         } else {
             print("\(fileURLs[indexPath.row]) Can't to see it QLPreviewItem")
         }
-        
+        */
     }
     
 
@@ -398,4 +518,21 @@ extension ViewController: TagControllerDelegate {
         }
         
     }
+    
+}
+
+extension ViewController {
+    
+
+    @IBAction func goToAWSContent() {
+        print("goto AWSContent")
+        
+        let storyboard: UIStoryboard = UIStoryboard(name: demoFeatures[1].storyboard, bundle: nil)
+        let vc = storyboard.instantiateViewController(withIdentifier: demoFeatures[1].storyboard)
+
+        self.navigationController?.pushViewController(vc, animated: true)
+        //present(vc, animated: true, completion: nil)
+    }
+    
+
 }
